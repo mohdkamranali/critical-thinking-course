@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Critical Thinking Course</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Focus (Cream, Slate, Sage Green) with K12 (Sky Blue) and Academic/Professional (New Blue) -->
+    <!-- Application Structure Plan: A single-page application using a "stepper" format. An initial audience selection screen tailors content. Content is stored in a JS object (courseContent) and dynamically rendered. A persistent header shows progress, score, and a home button. Footer buttons control navigation. Scenarios, reflection prompts, and gamification (points, achievements) are used for engagement. Content enriched based on Strategic Blueprint and user feedback. -->
+    <!-- Visualization & Content Choices: Course outline translated to interactive cards. JS handles quizzes, reflections, score updates. Frameworks visualized with HTML/CSS. No charts. Personalization adapts examples, depth, and prompts for K12, General, College, and Professional audiences. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .app-bg { background-color: #FDFBF8; }
+        .text-main { color: #334155; }
+        .text-muted { color: #64748b; }
+        .accent-bg { background-color: #38761d; } /* Main Green */
+        .accent-bg-light { background-color: #d9ead3; } /* Light Green */
+        .accent-text { color: #38761d; } /* Main Green Text */
+        .accent-border { border-color: #38761d; } /* Main Green Border */
+
+        .content-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: all 0.3s ease-in-out;
+            width: 100%;
+        }
+        .progress-bar-fill {
+            transition: width 0.5s ease-in-out;
+        }
+        .option-btn, .audience-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .option-btn:hover, .audience-btn:hover {
+            background-color: #e2e8f0; /* Default hover */
+        }
+        .option-btn.selected, .audience-btn.selected { /* Default selected */
+            background-color: #38761d; /* Main Green */
+            color: white;
+            border-color: #2c5a14; /* Darker Green */
+            font-weight: 600;
+        }
+
+        /* K12 Button Styles */
+        .audience-btn-k12 {
+            background-color: #e0f2fe; /* bg-sky-100 */
+            color: #0369a1; /* text-sky-700 */
+            border-color: #0ea5e9; /* border-sky-500 */
+        }
+        .audience-btn-k12:hover {
+            background-color: #bae6fd; /* bg-sky-200 */
+        }
+        .audience-btn-k12.selected {
+            background-color: #0284c7; /* bg-sky-600 */
+            color: white;
+            border-color: #0369a1; /* border-sky-700 */
+        }
+        
+        /* Academic/Professional Button Styles (New Blue) */
+        .audience-btn-blue {
+            background-color: #eff6ff; /* bg-blue-50 */
+            color: #1d4ed8; /* text-blue-700 */
+            border-color: #3b82f6; /* border-blue-500 */
+        }
+        .audience-btn-blue:hover {
+            background-color: #dbeafe; /* bg-blue-100 */
+        }
+        .audience-btn-blue.selected {
+            background-color: #2563eb; /* bg-blue-600 */
+            color: white;
+            border-color: #1d4ed8; /* border-blue-700 */
+        }
+
+
+        .option-btn.correct {
+            background-color: #dcfce7;
+            border-color: #22c55e;
+        }
+        .option-btn.incorrect {
+            background-color: #fee2e2;
+            border-color: #ef4444;
+        }
+        .draggable { cursor: grab; }
+        .draggable:active { cursor: grabbing; }
+        .drop-zone { border-style: dashed; }
+        .drop-zone.over { background-color: #f0fdf4; }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .home-btn {
+            font-size: 1.5rem; 
+            padding: 0.5rem;
+            line-height: 1;
+        }
+        .achievement-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #22c55e; /* Green-500 */
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .achievement-toast.show {
+            opacity: 1;
+        }
+        .instruction-text {
+            font-size: 0.8rem;
+            color: #64748b; /* text-slate-500 */
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body class="app-bg text-main antialiased">
+
+    <div id="app-container" class="min-h-screen flex flex-col justify-between p-4 md:p-6 lg:p-8">
+
+        <header id="app-header" class="w-full max-w-4xl mx-auto mb-4" style="display: none;">
+            <div class="flex justify-between items-center mb-2">
+                <h1 class="text-xl md:text-2xl font-bold text-center accent-text flex-grow">Critical Thinking Course</h1>
+                <div class="flex items-center space-x-2">
+                    <span id="score-display" class="text-sm font-semibold accent-text bg-accent-bg-light px-3 py-1 rounded-full">Score: 0</span>
+                    <button id="home-btn" title="Go to Home" class="home-btn accent-text hover:bg-gray-200 rounded-full p-2 transition-colors">🏠</button>
+                </div>
+            </div>
+            <div class="mt-2 w-full bg-gray-200 rounded-full h-2.5">
+                <div id="progress-bar" class="accent-bg h-2.5 rounded-full progress-bar-fill" style="width: 0%"></div>
+            </div>
+            <h2 id="section-title" class="text-center text-muted font-medium mt-2"></h2>
+        </header>
+
+        <main id="app-main" class="flex-grow flex items-center justify-center w-full max-w-2xl mx-auto">
+            <!-- Content will be dynamically injected here -->
+        </main>
+
+        <footer id="app-footer" class="w-full max-w-2xl mx-auto mt-6 flex justify-between items-center" style="display: none;">
+            <button id="back-btn" class="py-2 px-5 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Back</button>
+            <button id="next-btn" class="py-2 px-5 accent-bg text-white rounded-lg font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+        </footer>
+
+        <div id="achievement-toast" class="achievement-toast"></div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const courseContent = {
+                k12: [
+                    // Module 1: Welcome & What is Smart Thinking?
+                    { type: 'welcome', section: 'K-12: Module 1', title: 'Welcome, Young Thinker!', text: 'Let\'s learn to be super smart problem solvers!', button: 'Start Thinking!' },
+                    { type: 'text', section: 'K-12: Module 1', title: "Story Time: The Mystery of the Missing Cookies", text: "Let's read a story to see how thinking carefully helps!" },
+                    { type: 'case_study_card', section: 'K-12: Module 1', title: "The Missing Cookies", text: "Lily baked cookies for the school bake sale. She left them on the counter. When she came back, half were gone! Who took them? Her brother Tom was playing video games, and the dog, Sparky, was napping." },
+                    { type: 'mcq', section: 'K-12: Module 1', question: "What's the first thing Lily should do to solve the mystery?", options: ['Cry', 'Ask Tom and check Sparky for crumbs', 'Blame Tom immediately'], answer: 'Ask Tom and check Sparky for crumbs', feedback: "Good idea! Gathering clues is important." },
+                    { type: 'text', section: 'K-12: Module 1', title: 'What is Smart Thinking?', text: "Smart thinking (or critical thinking) means stopping to ask questions, looking for clues, and not jumping to answers too quickly." },
+                    { type: 'yes_no', section: 'K-12: Module 1', question: "Is it smart thinking to believe everything you see on TV?", answer: 'No', feedback: "That's right! It's good to question things." },
+                    { type: 'text', section: 'K-12: Module 1', title: 'Key Idea!', text: "Smart thinking means asking 'Why?' and looking closely!", achievement: "Module 1: Detective Starter!" },
+
+                    // Module 2: Clues and Questions
+                    { type: 'welcome', section: 'K-12: Module 2', title: 'Module 2: Clues and Questions!', text: "Super thinkers are great detectives!", button: 'Let\'s Investigate!' },
+                    { type: 'text', section: 'K-12: Module 2', title: 'What are Clues?', text: "Clues are like little hints that help us figure things out. Footprints in the mud can be a clue! Crumbs on the floor can be a clue too!" },
+                    { type: 'reflection', section: 'K-12: Module 2', title: 'Spot the Clue!', question: "Imagine a cat is sitting next to a spilled glass of milk. What could be a clue that the cat spilled the milk?", placeholder: "A clue might be..." },
+                    { type: 'text', section: 'K-12: Module 2', title: 'Asking Good Questions', text: "Asking 'Why?', 'What if?', and 'How?' helps us learn more. If a toy is broken, ask 'How did it break?'" },
+                    { type: 'reflection', section: 'K-12: Module 2', title: 'Mystery Solver: What\'s the Missing Clue?', question: "Tom says he never left his room, but Lily found muddy paw prints near the cookie jar AND near Tom's door. Sparky the dog was sleeping soundly. What important question should Lily ask Tom to help solve the cookie mystery?", placeholder: "Type your smart question here..." },
+                    { type: 'text', section: 'K-12: Module 2', title: 'Key Idea!', text: "Good questions help us find good answers and solve mysteries!", achievement: "Module 2: Question Master!" },
+
+                    // Module 3: Thinking About Choices
+                    { type: 'welcome', section: 'K-12: Module 3', title: 'Module 3: Thinking About Choices!', text: "Every choice we make leads to something happening next!", button: 'Explore Choices!' },
+                    { type: 'case_study_card', section: 'K-12: Module 3', title: "Story: The Two Paths", text: "Leo was walking and came to two paths. Path 1 looked easy and quick, but a sign said 'Beware of Bees!'. Path 2 looked longer and hilly, but a sign said 'Sunny Meadow Ahead'. Leo chose Path 1 because he was in a hurry." },
+                    { type: 'mcq', section: 'K-12: Module 3', question: "What might happen because Leo chose Path 1?", options: ['He might get to the meadow faster.', 'He might get stung by bees.', 'He might find treasure.'], answer: 'He might get stung by bees.', feedback: "That's a good thought! Ignoring warnings can lead to trouble." },
+                    { type: 'text', section: 'K-12: Module 3', title: 'What Happens Next?', text: "Thinking about what might happen *after* you make a choice is super important. This is called thinking about 'consequences'." },
+                    { type: 'reflection', section: 'K-12: Module 3', title: 'Your Choice!', question: "You find a colorful, yummy-looking berry in the park. What are two choices you have, and what might happen for each choice?", placeholder: "Choice 1: ... Might happen: ... Choice 2: ... Might happen: ..." },
+                    { type: 'text', section: 'K-12: Module 3', title: 'Key Idea!', text: "Thinking about what could happen next helps us make safer and better choices.", achievement: "Module 3: Choice Champion!" },
+                    
+                    // Module 4: Is it True? Checking Facts
+                    { type: 'welcome', section: 'K-12: Module 4', title: 'Module 4: Is It True?', text: "How do we know if something we hear or see is real?", button: 'Let\'s Find Out!' },
+                    { type: 'case_study_card', section: 'K-12: Module 4', title: "Story: The Talking Dog Rumor", text: "At school, Ben told everyone he saw a dog that could talk like a person! Soon, many kids were talking about the amazing talking dog." },
+                    { type: 'text', section: 'K-12: Module 4', title: 'How to Check if Something is True', text: "1. Ask a grown-up you trust. 2. Look it up in a book or on a safe kids' website (with a grown-up). 3. Sometimes, you need to see it to believe it (but be careful!)." },
+                    { type: 'yes_no', section: 'K-12: Module 4', question: "If your friend says a superhero is real and can fly, is it definitely true?", answer: 'No', feedback: "Good thinking! Superheroes are fun in stories, but we should check facts for real life." },
+                    { type: 'reflection', section: 'K-12: Module 4', title: 'Fact Finder!', question: "Someone tells you, 'Cats can fly!' How could you check if this is true?", placeholder: "I could check by..." },
+                    { type: 'text', section: 'K-12: Module 4', title: 'Key Idea!', text: "It's smart to check if information is true before believing or sharing it.", achievement: "Module 4: Fact Finder Pro!" },
+
+                    // Module 5: Solving Puzzles Together
+                    { type: 'welcome', section: 'K-12: Module 5', title: 'Module 5: Solving Puzzles Together!', text: "Sometimes, the best way to solve a problem is with friends!", button: 'Team Up!' },
+                    { type: 'text_card', section: 'K-12: Module 5', title: 'Pattern Puzzle!', text: "Look at this pattern: Red, Blue, Red, Blue, Red, ___. What color comes next?", example: "Think about it!"},
+                    { type: 'mcq', section: 'K-12: Module 5', question: "What color comes next in the pattern: Red, Blue, Red, Blue, Red, ___?", options: ['Green', 'Red', 'Blue'], answer: 'Blue', feedback: "You got it! The pattern repeats Red then Blue." },
+                    { type: 'text', section: 'K-12: Module 5', title: 'Teamwork Makes the Dream Work!', text: "When we work with others, we can share ideas and help each other find answers. It's like having more brains on the job!" },
+                    { type: 'reflection', section: 'K-12: Module 5', title: 'My Super Idea!', question: "If you had a tricky problem, like building a very tall tower with blocks, who would you ask for help, and what's one idea you might share?", placeholder: "I would ask... and my idea is..." },
+                    { type: 'text', section: 'K-12: Module 5', title: 'Key Idea!', text: "Working together and sharing ideas helps solve even tough puzzles!", achievement: "Module 5: Puzzle Pro!" },
+                    
+                    // Module 6: You are a Super Thinker!
+                    { type: 'welcome', section: 'K-12: Module 6', title: 'Module 6: You are a Super Thinker!', text: "Let's remember all the smart thinking skills we learned!", button: 'Review My Skills!' },
+                    { type: 'summary', section: 'K-12: Module 6', title: 'Your Super Thinking Toolkit!', points: ["Asking 'Why?' and other good questions.", "Looking for clues and hints.", "Thinking about what might happen next (choices!).", "Checking if information is true.", "Working with others to solve problems."] },
+                    { type: 'summary', section: 'K-12: Module 6', title: 'You are a Super Thinker!', points: ["Ask questions!", "Look for clues!", "Think before you decide!"] },
+                    { type: 'text', section: 'K-12: Module 6', title: 'The End (For Now!)', text: "Keep practicing your super thinking skills every day! You're doing great!", achievement: "K-12 Critical Thinker Graduate!" }
+                ],
+                general: [
+                    { type: 'welcome', section: '1.1: Introduction', title: 'Welcome to Module 1!', text: 'What is Critical Thinking and Why Does It Matter?', button: 'Start Section' },
+                    { type: 'text', section: '1.1: Introduction', title: "Case Study: The 'Miracle' Energy Drink Ad", text: "Let's start with a real-life scenario to see why critical thinking is so important." },
+                    { type: 'case_study_card', section: '1.1: Introduction', title: "The Situation", text: "Sarah has been feeling tired and run down for weeks. While scrolling social media, she sees a vibrant ad for a new drink called 'ZipZap!' featuring energetic people, glowing testimonials, and a 'revolutionary natural formula' claim." },
+                    { type: 'case_study_card', section: '1.1: Introduction', title: "The Offer", text: "The ad also includes a powerful call to action: '50% off for today only!' Sarah feels a rush of hope and excitement.", visuals: 'mock_ad' },
+                    { type: 'mcq', section: '1.1: Introduction', question: "When Sarah first saw the ad, what emotions or desires did it likely appeal to?", options: ['Hope for more energy', 'Desire for a quick fix', 'Excitement about a discount', 'All of the above'], answer: 'All of the above', feedback: "Correct! Ads often tap into multiple emotions to be more persuasive." },
+                    { type: 'reflection', section: '1.1: Introduction', question: "Can you think of a time you saw an ad or claim that seemed too good to be true? What did you do?", placeholder: "Type your reflection here... (Your thoughts are private)" },
+                    { type: 'case_study_card', section: '1.1: Introduction', title: "The Pause & The Questions", text: "Just as she is about to click 'Buy Now,' Sarah pauses. A small voice of doubt whispers: 'Is this too good to be true?' She decides to take a few minutes to think critically." },
+                    { type: 'mcq', section: '1.1: Introduction', question: "What was a key persuasion tactic used in the ZipZap! ad?", options: ['Listing all ingredients clearly', "Using a 'Limited Time Offer' to create urgency", 'Providing links to scientific studies'], answer: "Using a 'Limited Time Offer' to create urgency", feedback: "Exactly! Creating urgency pushes people to make decisions before they've had time to think." },
+                    { type: 'case_study_card', section: '1.1: Introduction', title: "The Investigation", text: "Sarah searches for independent reviews, not just the testimonials in the ad. She finds the ingredients list in the fine print and discovers it's mostly sugar and caffeine. The 'revolutionary' part is vague." },
+                    { type: 'case_study_card', section: '1.1: Introduction', title: "The Informed Decision", text: "Realizing the drink is just a quick, temporary buzz, Sarah decides not to buy it. Instead, she thinks about the real reasons she might be tired and decides to address those first." },
+                    { type: 'text', section: '1.1: Introduction', title: "Key Takeaway", text: "Sarah's story shows how a few critical questions can help you make better choices and avoid misleading information.", achievement: "Module 1: Critical Consumer!" },
+                    { type: 'welcome', section: '1.2: Defining Critical Thinking', title: 'What is Critical Thinking?', text: "Let's break down what this skill really means." },
+                    { type: 'text', section: '1.2: Defining Critical Thinking', title: 'A Clear Definition', text: "Critical thinking is the objective analysis and evaluation of an issue in order to form a reasoned judgment. It's an active skill, not a passive one." },
+                    { type: 'yes_no', section: '1.2: Defining Critical Thinking', question: "Is this Critical Thinking? Believing something just because your friend said it.", answer: 'No', feedback: "Correct. That's accepting information passively, without questioning." },
+                    { type: 'comparison', section: '1.2: Defining Critical Thinking', title: "What It IS vs. What It ISN'T", is: ['Analyzing', 'Questioning Evidence', 'Looking for Connections', 'Open-mindedness'], isNot: ['Being Negative', 'Memorizing Facts', 'Accepting Passively', 'Always Being Right'] },
+                    { type: 'expandable_list', section: '1.2: Defining Critical Thinking', title: "Characteristics of a Critical Thinker", items: [{ term: 'Curiosity', def: 'A strong desire to learn and know more; constantly asking "why?"' }, { term: 'Skepticism', def: "Not accepting things at face value; looking for evidence." }, { term: 'Humility', def: 'Awareness of one\'s own biases and the limits of one\'s knowledge.' }] },
+                    { type: 'yes_no', section: '1.2: Defining Critical Thinking', question: "Myth or Fact? Critical thinking means you'll always win arguments.", answer: 'No', feedback: "It's a myth! The goal is clarity and sound reasoning, not just winning." },
+                    { type: 'reflection', section: '1.2: Defining Critical Thinking', question: "Which characteristic of a critical thinker do you most want to develop? Why?", placeholder: "e.g., I want to be more skeptical of online news...", achievement: "Module 1 Continued: Self-Aware Thinker!" },
+                    { type: 'welcome', section: '1.3: Everyday Importance', title: 'Why It Matters in Your Daily Life', text: "Critical thinking isn't just for academics; it's a practical life skill." },
+                    { type: 'icons', section: '1.3: Everyday Importance', title: 'Everyday Benefits', items: [{ icon: '💰', text: 'Better Financial Decisions' }, { icon: '📰', text: 'Spotting Misinformation' }, { icon: '💡', text: 'Solving Problems Effectively' }] },
+                    { type: 'scenario', section: '1.3: Everyday Importance', title: "Scenario 1", text: "You read a shocking headline on social media. How can critical thinking help?", options: ["Share it immediately if it's exciting.", "Check the source and look for other reports.", "Assume it's true if it has many likes."], answer: "Check the source and look for other reports." },
+                    { type: 'scenario', section: '1.3: Everyday Importance', title: "Scenario 2", text: "You need to choose a new phone plan. How can critical thinking help?", options: ["Pick the one with the flashiest ad.", "Ask a friend what they have and copy it.", "Compare plans based on data, price, and your actual needs."], answer: "Compare plans based on data, price, and your actual needs.", achievement: "Module 1 Continued: Practical Problem Solver!" },
+                    { type: 'welcome', section: '1.4: Roadblocks', title: 'Roadblocks to Thinking', text: "Thinking critically isn't always easy. Let's look at what can get in the way." },
+                    { type: 'text_card', section: '1.4: Roadblocks', title: 'Internal Barrier: Confirmation Bias', text: 'We naturally tend to favor information that confirms our existing beliefs. It feels good to be right!', example: "Like Sarah *wanting* ZipZap! to be the answer to her fatigue." },
+                    { type: 'text_card', section: '1.4: Roadblocks', title: 'Internal Barrier: Emotional Reasoning', text: "This is when you let your feelings guide your belief about what's true.", example: `The thought "I *feel* like this is right, so it must be."` },
+                    { type: 'mcq', section: '1.4: Roadblocks', question: "Maria only watches news channels that align with her political views. This is a classic example of...", options: ['Anchoring Bias', 'Confirmation Bias', 'Emotional Reasoning'], answer: 'Confirmation Bias', feedback: "Correct! She is seeking out information that confirms what she already believes." },
+                    { type: 'text_card', section: '1.4: Roadblocks', title: 'External Barrier: Misinformation', text: "We are surrounded by false or inaccurate information that is often designed to look real.", example: "Like the misleading claims in the ZipZap! ad.", achievement: "Module 1 Continued: Barrier Spotter!" },
+                    { type: 'welcome', section: '1.5: A Basic Framework', title: 'A Basic Framework for Thinking Critically', text: 'When you feel stuck, a simple process can guide you.' },
+                    { type: 'framework', section: '1.5: A Basic Framework', title: 'A Simple 4-Step Guide', steps: ['Stop & Clarify', 'Gather & Evaluate', 'Analyze & Connect', 'Conclude & Decide'] },
+                    { type: 'drag_drop', section: '1.5: A Basic Framework', title: 'Interactive: Order the Steps!', steps: ['Gather & Evaluate', 'Conclude & Decide', 'Stop & Clarify', 'Analyze & Connect'], correctOrder: ['Stop & Clarify', 'Gather & Evaluate', 'Analyze & Connect', 'Conclude & Decide'] },
+                    { type: 'match', section: '1.5: A Basic Framework', title: "Match Sarah's Actions", items: [{ action: "Paused before buying", step: "Stop & Clarify" }, { action: "Searched for reviews", step: "Gather & Evaluate" }, { action: "Realized it was just sugar", step: "Analyze & Connect" }, { action: "Decided not to buy", step: "Conclude & Decide" }], achievement: "Module 1 Continued: Framework Master!" },
+                    { type: 'welcome', section: '1.6: Wrap-up', title: 'Module 1 Wrap-up', text: "Let's review the key takeaways from this module." },
+                    { type: 'summary', section: '1.6: Wrap-up', title: 'Key Takeaways', points: ["Critical thinking helps you analyze information objectively.", "It's a vital skill for making everyday decisions.", "Be aware of internal and external barriers like biases.", "A simple framework can guide your thinking process."] },
+                    { type: 'final_quiz', section: '1.6: Wrap-up', question: 'Which of these is a key CHARACTERISTIC of a critical thinker?', options: ['Being quick to judge', 'Skepticism', 'Always agreeing with the group'], answer: 'Skepticism' },
+                    { type: 'final_quiz', section: '1.6: Wrap-up', question: "A 'limited time offer' is an external barrier related to...", options: ['Time Pressure', 'Misinformation', 'Groupthink'], answer: 'Time Pressure' },
+                    { type: 'text', section: '1.6: Wrap-up', title: 'End of Module 1', text: "Great job! In Module 2, we'll dive deeper into the building blocks of arguments.", achievement: "Module 1 Complete: Critical Foundations!" },
+                    { type: 'welcome', section: '2.1: Arguments Intro', title: 'Module 2: The Building Blocks of Arguments', text: "Let's learn how to dissect arguments to understand them better.", button: 'Start Module 2' },
+                    { type: 'text', section: '2.1: Arguments Intro', title: 'What is an Argument?', text: "In critical thinking, an argument isn't a fight! It's a set of statements where some (premises) are offered as reasons for another statement (the conclusion)." },
+                    { type: 'expandable_list', section: '2.2: Argument Components', title: "Key Components of an Argument", items: [ { term: 'Claim (Conclusion)', def: 'The main point the arguer is trying to make. What they want you to believe or do.' }, { term: 'Premise(s)', def: 'The reasons or evidence offered to support the claim. Why you should believe the claim.' } ]},
+                    { type: 'text_card', section: '2.2: Argument Components', title: 'Example Argument', text: "Claim: We should invest in renewable energy. Premise 1: Renewable energy reduces carbon emissions. Premise 2: Reducing carbon emissions is crucial for the environment." },
+                    { type: 'mcq', section: '2.2: Argument Components', question: "In the argument: 'Exercise is good for health because it strengthens the heart.' What is the claim?", options: ['Exercise is good for health.', 'It strengthens the heart.', 'Exercise is good.'], answer: 'Exercise is good for health.', feedback: "Correct! That's the main point being argued." },
+                    { type: 'text', section: '2.3: Facts vs. Opinions', title: 'Facts vs. Opinions', text: "Understanding this distinction is crucial for evaluating arguments." },
+                    { type: 'comparison', section: '2.3: Facts vs. Opinions', title: "Distinguishing Facts and Opinions", is: ['Fact: Verifiable, objective, provable true or false.'], isNot: ['Opinion: A belief or judgment, not necessarily based on proof, can vary between people.'] },
+                    { type: 'yes_no', section: '2.3: Facts vs. Opinions', question: "Statement: 'Chocolate ice cream is the best flavor.' Is this a fact or an opinion?", answer: 'No', feedback: "Correct, this is an opinion. 'Best' is subjective."  },
+                    { type: 'yes_no', section: '2.3: Facts vs. Opinions', question: "Statement: 'The Earth revolves around the Sun.' Is this a fact or an opinion?", answer: 'Yes', feedback: "Correct, this is a verifiable fact." },
+                    { type: 'text', section: '2.4: Assumptions', title: 'Uncovering Assumptions', text: "Arguments often rely on assumptions – ideas taken for granted but not explicitly stated." },
+                    { type: 'text_card', section: '2.4: Assumptions', title: 'Example: Unstated Assumption', text: "Argument: 'This car is expensive, so it must be high quality.' Assumption: Expensive things are always high quality (which isn't always true!)." },
+                    { type: 'reflection', section: '2.4: Assumptions', title: 'Spot the Assumption: The "Quiet Colleague"', question: "Scenario: At a team meeting, a new colleague, Sarah, doesn't speak much. Another team member later says, 'Sarah must not have any good ideas; she was so quiet.' What hidden assumption is being made about Sarah's silence?", placeholder: "The assumption is that..." },
+                    { type: 'reflection', section: '2.4: Assumptions', question: "Think of a recent discussion. What unstated assumptions might have been present?", placeholder: "e.g., We assumed everyone wanted the same outcome..." },
+                    { type: 'summary', section: '2.5: Module 2 Wrap-up', title: 'Module 2 Summary', points: ["Arguments consist of claims (conclusions) and premises (reasons).", "Distinguishing facts from opinions is key.", "Identifying unstated assumptions helps reveal weaknesses in arguments."] },
+                    { type: 'text', section: '2.5: Module 2 Wrap-up', title: 'End of Module 2', text: "You're building a strong foundation! Next, we'll look at evaluating information and sources.", achievement: "Module 2 Complete: Argument Architect!" },
+                    { type: 'welcome', section: '3.1: Info & Sources Intro', title: 'Module 3: Evaluating Information & Sources', text: "How do we know what to believe? Let's explore.", button: 'Start Module 3' },
+                    { type: 'text', section: '3.2: Understanding Biases', title: 'Recognizing Our Biases', text: "Biases are mental shortcuts that can cloud our judgment. Being aware of them is the first step." },
+                    { type: 'expandable_list', section: '3.2: Understanding Biases', title: "Common Cognitive Biases", items: [ { term: 'Confirmation Bias', def: 'Seeking out information that confirms what you already believe, and ignoring information that challenges it.' },  { term: 'Anchoring Bias', def: 'Over-relying on the first piece of information you hear, even if it’s not the most relevant.' }, { term: 'Availability Heuristic', def: 'Overestimating the likelihood of events that are easily recalled in memory, often because they are recent or vivid.' } ]},
+                    { type: 'mcq', section: '3.2: Understanding Biases', question: "After seeing several news reports about plane crashes, you start to believe flying is more dangerous than driving, despite statistics showing otherwise. This is likely:", options: ['Confirmation Bias', 'Anchoring Bias', 'Availability Heuristic'], answer: 'Availability Heuristic', feedback: "Correct! Vivid, easily recalled examples (like news of crashes) can make events seem more common." },
+                    { type: 'text', section: '3.3: Source Credibility (CRAAP Test)', title: 'Is This Source Trustworthy? The CRAAP Test', text: "A handy acronym to help you evaluate sources: Currency, Relevance, Authority, Accuracy, Purpose." },
+                    { type: 'expandable_list', section: '3.3: Source Credibility (CRAAP Test)', title: "The CRAAP Test Explained", items: [ { term: 'Currency', def: 'How recent is the information?' },  { term: 'Relevance', def: 'Does it relate to your topic?' }, { term: 'Authority', def: 'Who is the author/source? Are they an expert?' }, { term: 'Accuracy', def: 'Is the information correct and supported by evidence?' }, { term: 'Purpose', def: 'Why was this information created? (To inform, persuade, sell?)' } ]},
+                    { type: 'scenario', section: '3.3: Source Credibility (CRAAP Test)', title: "Evaluate This Source", text: "You find a blog post about climate change written in 2005 by someone with no listed credentials. Which CRAAP criteria might be a concern?", options: ["Currency and Authority", "Relevance and Purpose", "Accuracy and Relevance"], answer: "Currency and Authority" },
+                    { type: 'reflection', section: '3.3: Source Credibility (CRAAP Test)', title: 'Beyond CRAAP: Media Purpose', question: "Consider a recent news article or social media post that caught your attention. Beyond its basic credibility (CRAAP), what do you think was the primary PURPOSE behind its creation (e.g., to inform objectively, to persuade you of a viewpoint, to entertain, to sell something, to provoke emotion)? How did that purpose affect how the information was presented?", placeholder: "The purpose seemed to be... This affected the presentation by..." },
+                    { type: 'text', section: '3.4: Logical Fallacies', title: 'Spotting Flawed Arguments: Logical Fallacies', text: "Fallacies are errors in reasoning that make an argument invalid." },
+                    { type: 'expandable_list', section: '3.4: Logical Fallacies', title: "Common Logical Fallacies", items: [ { term: 'Ad Hominem', def: 'Attacking the person making the argument instead of the argument itself. (e.g., "Don\'t listen to her, she\'s a bad person.")' },  { term: 'Straw Man', def: 'Misrepresenting someone\'s argument to make it easier to attack. (e.g., "You want to reduce military spending? So you want to leave us defenseless!")' }, { term: 'Appeal to Emotion', def: 'Manipulating emotions instead of using valid reasoning. (e.g., A sad story used to solicit donations without facts about the charity.)' } ]},
+                    { type: 'mcq', section: '3.4: Logical Fallacies', question: "Politician A says: 'My opponent's plan for the economy is terrible because he once got a parking ticket!' This is an example of:", options: ['Straw Man', 'Ad Hominem', 'Appeal to Emotion'], answer: 'Ad Hominem', feedback: "Correct! It attacks the person, not their plan." },
+                    { type: 'summary', section: '3.5: Module 3 Wrap-up', title: 'Module 3 Summary', points: ["Be aware of your own cognitive biases.", "Use the CRAAP test and consider the purpose to evaluate source credibility.", "Learn to identify common logical fallacies in arguments."] },
+                    { type: 'text', section: '3.5: Module 3 Wrap-up', title: 'End of Module 3', text: "Excellent work! Next, we'll focus on analyzing arguments and evidence in more detail.", achievement: "Module 3 Complete: Information Investigator!" },
+                    { type: 'welcome', section: '4.1: Analyzing Arguments Intro', title: 'Module 4: Analyzing Arguments & Evidence', text: "Let's sharpen our skills in dissecting arguments and weighing evidence.", button: 'Start Module 4' },
+                    { type: 'text', section: '4.2: Strength of Evidence', title: 'How Strong is the Evidence?', text: "Not all evidence is created equal. Strong evidence is relevant, sufficient, and accurate." },
+                    { type: 'scenario', section: '4.2: Strength of Evidence', title: "Rate the Evidence", text: "Claim: 'This new diet pill guarantees weight loss.' Evidence: A single testimonial on the company's website. How strong is this evidence?", options: ["Very Strong", "Moderately Strong", "Weak"], answer: "Weak" , feedback: "Correct. A single, biased testimonial is weak evidence."},
+                    { type: 'text', section: '4.3: Logical Connections & Gaps', title: 'Connections and Gaps', text: "Look for how premises connect to the conclusion. Are there any missing links or leaps in logic?" },
+                    { type: 'text_card', section: '4.3: Logical Connections & Gaps', title: 'Example: Gap in Logic', text: "Argument: 'Our city has many parks. Therefore, our city has low pollution.' Gap: Does having parks automatically mean low pollution? Other factors are ignored." },
+                    { type: 'text', section: '4.4: Deductive vs. Inductive Reasoning', title: 'Two Types of Reasoning', text: "Understanding deductive and inductive reasoning helps analyze argument structure." },
+                    { type: 'comparison', section: '4.4: Deductive vs. Inductive Reasoning', title: "Deductive vs. Inductive", is: ['Deductive: Starts with a general principle to reach a specific, certain conclusion (if premises are true). Example: All birds have feathers. A robin is a bird. Therefore, a robin has feathers.'], isNot: ['Inductive: Uses specific observations to form a general, probable conclusion (not guaranteed). Example: Every swan I have ever seen is white. Therefore, all swans are probably white.'] },
+                    { type: 'mcq', section: '4.4: Deductive vs. Inductive Reasoning', question: "Argument: 'My math teacher is good. My history teacher is good. Therefore, all teachers at this school are probably good.' This is an example of:", options: ['Deductive Reasoning', 'Inductive Reasoning'], answer: 'Inductive Reasoning', feedback: "Correct! It moves from specific observations to a general (but not guaranteed) conclusion." },
+                    { type: 'reflection', section: '4.4: Deductive vs. Inductive Reasoning', question: "Find an opinion piece online. Try to identify if its main argument uses primarily deductive or inductive reasoning. What clues did you use?", placeholder: "Article link (optional) and your analysis..."},
+                    { type: 'summary', section: '4.5: Module 4 Wrap-up', title: 'Module 4 Summary', points: ["Evaluate evidence for relevance, sufficiency, and accuracy.", "Look for logical connections and identify gaps in arguments.", "Distinguish between deductive (certainty-focused) and inductive (probability-focused) reasoning."] },
+                    { type: 'text', section: '4.5: Module 4 Wrap-up', title: 'End of Module 4', text: "You're becoming a skilled analyst! Now, let's apply these skills to problem-solving.", achievement: "Module 4 Complete: Evidence Evaluator!" },
+                    { type: 'welcome', section: '5.1: Problem Solving Intro', title: 'Module 5: Problem Solving & Decision Making', text: "Critical thinking is a powerful tool for tackling problems and making sound decisions.", button: 'Start Module 5' },
+                    { type: 'framework', section: '5.2: The Problem-Solving Process', title: 'A Problem-Solving Process', steps: ['Define the Problem Clearly', 'Brainstorm Potential Solutions (Ideate)', 'Evaluate Options & Consequences', 'Choose & Implement a Solution', 'Review & Learn from the Outcome'] },
+                    { type: 'text_card', section: '5.2: The Problem-Solving Process', title: 'Step 1: Define the Problem', text: "What is the *actual* problem, not just its symptoms? Be specific. A well-defined problem is half-solved." },
+                    { type: 'reflection', section: '5.2: The Problem-Solving Process', question: "Think of a small problem you faced recently. How would you define it clearly in one or two sentences?", placeholder: "My problem was..."},
+                    { type: 'reflection', section: '5.2: The Problem-Solving Process', title: 'Problem Corner: The Noisy Neighbors', question: "Your neighbors have started playing loud music late into the night, disturbing your sleep. You've already tried politely asking them to lower it once, but it hasn't worked. What are two different approaches you could consider next? Briefly describe them.", placeholder: "Approach 1: ... Approach 2: ..." },
+                    { type: 'text_card', section: '5.2: The Problem-Solving Process', title: 'The Ladder of Inference', text: "This tool helps us understand how we move from observation to action, often by making assumptions. Steps: 1. Observe data, 2. Select data, 3. Add meanings, 4. Make assumptions, 5. Draw conclusions, 6. Adopt beliefs, 7. Take actions." },
+                    { type: 'reflection', section: '5.2: The Problem-Solving Process', title: 'Climbing Down Your Ladder', question: "Think of a recent disagreement or misunderstanding. Try to trace your thinking back down the 'Ladder of Inference'. What data did you select? What assumptions did you make? How might this have affected the outcome?", placeholder: "My selected data was... My assumption was..." },
+                    { type: 'text', section: '5.3: Evaluating Solutions', title: 'Evaluating Solutions', text: "Consider pros, cons, potential risks, and alignment with your goals for each potential solution." },
+                    { type: 'scenario', section: '5.3: Evaluating Solutions', title: "Pros & Cons", text: "Problem: You consistently oversleep. Solution A: Set multiple alarms. Solution B: Go to bed earlier. What's one pro and one con for Solution B?", options: ["Pro: More rest. Con: Less evening free time.", "Pro: Noisy. Con: Might still oversleep.", "Pro: Cheap. Con: Annoying for others."], answer: "Pro: More rest. Con: Less evening free time." },
+                    { type: 'text', section: '5.4: Decision Making', title: 'Making Informed Decisions', text: "Use your critical thinking skills to weigh evidence, consider consequences, and choose the best course of action." },
+                    { type: 'yes_no', section: '5.4: Decision Making', question: "Is it always best to make decisions quickly, based on your gut feeling?", answer: 'No', feedback: "Generally no. While intuition can play a role, critical thinking involves more deliberate evaluation, especially for important decisions." },
+                    { type: 'summary', section: '5.5: Module 5 Wrap-up', title: 'Module 5 Summary', points: ["Follow a structured process for problem-solving.", "Clearly define the problem before seeking solutions.", "Use tools like the Ladder of Inference to check assumptions.", "Evaluate potential solutions by considering pros, cons, and consequences.", "Use critical thinking to make well-reasoned decisions."] },
+                    { type: 'text', section: '5.5: Module 5 Wrap-up', title: 'End of Module 5', text: "Great progress! In our final module, we'll look at applying critical thinking in various life contexts.", achievement: "Module 5 Complete: Solution Strategist!" },
+                    { type: 'welcome', section: '6.1: Applying CT Intro', title: 'Module 6: Applying Critical Thinking in Different Contexts', text: "Let's see how critical thinking plays out in academics, work, and personal life.", button: 'Start Module 6' },
+                    { type: 'text_card', section: '6.2: CT in Contexts', title: 'CT in Academics', text: "Analyzing texts, evaluating research, constructing logical arguments in essays, participating in debates." },
+                    { type: 'text_card', section: '6.2: CT in Contexts', title: 'CT in Professional Life', text: "Solving workplace problems, making strategic decisions, innovating, evaluating proposals, effective communication." },
+                    { type: 'text_card', section: '6.2: CT in Contexts', title: 'CT in Personal Life', text: "Making health and financial decisions, evaluating news, navigating relationships, managing personal projects." },
+                    { type: 'reflection', section: '6.2: CT in Contexts', question: "Describe one specific situation in your work or studies where better critical thinking could have led to a different outcome.", placeholder: "Type your thoughts..."},
+                    { type: 'text', section: '6.3: Ethical Considerations', title: 'The Ethics of Critical Thinking', text: "With great thinking power comes responsibility. Use your skills ethically." },
+                    { type: 'expandable_list', section: '6.3: Ethical Considerations', title: "Ethical Principles (Paul-Elder's Intellectual Traits)", items: [ { term: 'Intellectual Humility', def: 'Recognizing the limits of one\'s knowledge and being aware of potential biases.' },  { term: 'Intellectual Courage', def: 'Addressing ideas fairly, regardless of personal viewpoint or negative emotions.' }, { term: 'Intellectual Empathy', def: 'Understanding others\' perspectives by stepping into their shoes.' }, { term: 'Intellectual Integrity', def: 'Holding oneself to the same rigorous standards of evidence and proof to which one holds others.' }, { term: 'Fair-mindedness', def: 'Approaching all reasoning and viewpoints with impartiality, setting aside personal feelings or biases.'} ]},
+                    { type: 'text', section: '6.4: Critical + Creative Thinking', title: 'Critical AND Creative Thinking', text: "These two skills are partners, not opposites. Creativity generates ideas; critical thinking evaluates and refines them." },
+                    { type: 'yes_no', section: '6.4: Critical + Creative Thinking', question: "Does critical thinking stifle creativity?", answer: 'No', feedback: "No, it helps to refine creative ideas, test their feasibility, and improve them." },
+                    { type: 'reflection', section: '6.5: Personal Action Plan', title: 'Your Critical Thinking Journey', question: "What is ONE specific step you will take this week to practice or improve your critical thinking skills?", placeholder: "e.g., I will analyze one news article for bias..." },
+                    { type: 'summary', section: '6.6: Course Wrap-up', title: 'Course Summary & Congratulations!', points: ["Critical thinking is a versatile skill applicable in all areas of life.", "Ethical application of critical thinking is crucial.", "Critical and creative thinking work together to produce better outcomes.", "Continuous practice is key to strengthening your critical thinking abilities."] },
+                    { type: 'text', section: '6.6: Course Wrap-up', title: 'You Did It!', text: "Congratulations on completing the Critical Thinking Course! We hope you feel empowered to think more clearly, analyze information effectively, and make well-reasoned decisions. Keep practicing and questioning!", achievement: "Critical Thinker Graduate!" }
+                ],
+                college: [
+                    { type: 'welcome', section: 'College: Module 1', title: 'Module 1: Foundations of Critical Inquiry', text: 'Developing rigorous analytical and evaluative skills for academic and professional success.', button: 'Begin Module' },
+                    { type: 'text', section: 'College: Module 1', title: "Case Study: Evaluating a Controversial Research Paper", text: "Let's analyze a scenario common in academic settings." },
+                    { type: 'case_study_card', section: 'College: Module 1', title: "The Research Dilemma", text: "A new, highly publicized study makes a bold claim that contradicts established theories in your field. It's generating a lot of buzz, but some senior academics are skeptical about its methodology and the journal it was published in." },
+                    { type: 'mcq', section: 'College: Module 1', question: "As a student, what's your first critical step when encountering such a study?", options: ['Immediately accept its findings due to publicity.', 'Dismiss it because senior academics are skeptical.', 'Critically evaluate its methodology, sources, and potential biases before forming a judgment.'], answer: 'Critically evaluate its methodology, sources, and potential biases before forming a judgment.', feedback: "Excellent. Independent critical evaluation is key in academia." },
+                    { type: 'text', section: 'College: Module 1', title: 'Defining Academic Critical Thinking', text: "It involves disciplined intellectual critique, logical reasoning, identifying assumptions, evaluating the validity and reliability of evidence, and constructing coherent, well-supported arguments." },
+                    { type: 'expandable_list', section: 'College: Module 1', title: "Paul-Elder's Intellectual Traits for Scholars", items: [
+                        { term: 'Intellectual Humility', def: 'Recognizing the limits of your knowledge and being open to correction.' },
+                        { term: 'Intellectual Courage', def: 'Willingness to question beliefs you hold strongly or that are popular.' },
+                        { term: 'Intellectual Empathy', def: 'Understanding and appreciating others\' viewpoints, even if you disagree.' },
+                        { term: 'Intellectual Autonomy', def: 'Thinking for yourself, not just accepting what others say.' },
+                        { term: 'Intellectual Integrity', def: 'Being true to your own thinking and holding yourself to high standards.' },
+                        { term: 'Intellectual Perseverance', def: 'Working through complex problems and not giving up easily.' },
+                        { term: 'Confidence in Reason', def: 'Believing that, in the long run, good reasoning will lead to better understanding.' },
+                        { term: 'Fair-mindedness', def: 'Considering all viewpoints fairly, without bias towards your own.' }
+                    ]},
+                    { type: 'reflection', section: 'College: Module 1', title: 'Cultivating an Intellectual Trait', question: "Which of the Intellectual Traits listed above do you find most challenging to practice in your academic work? What is one small step you could take to develop it?", placeholder: "I find ... challenging. I could try to ..."},
+                    { type: 'text', section: 'College: Module 1', title: 'Key Academic Skill', text: "Critical thinking underpins success in research, essay writing, seminar discussions, and problem-solving across all disciplines.", achievement: "Module 1: Scholarly Foundations!" },
+
+                    { type: 'welcome', section: 'College: Module 2', title: 'Module 2: Deconstructing Academic Arguments', text: "Understanding the structure and nuances of scholarly arguments.", button: 'Start Analysis' },
+                    { type: 'expandable_list', section: 'College: Module 2', title: "Elements of Academic Arguments (Paul-Elder's Elements of Thought)", items: [ 
+                        { term: 'Purpose', def: 'What is the author trying to achieve with this argument?' }, 
+                        { term: 'Question at Issue', def: 'What specific problem or question is the argument addressing?' },
+                        { term: 'Information/Data/Evidence', def: 'What facts, statistics, or observations support the argument?' },
+                        { term: 'Inferences/Interpretations', def: 'What conclusions does the author draw from the evidence?' },
+                        { term: 'Concepts', def: 'What key ideas or theories are central to the argument?' },
+                        { term: 'Assumptions', def: 'What unstated beliefs does the author take for granted?' },
+                        { term: 'Implications/Consequences', def: 'If the argument is accepted, what follows?' },
+                        { term: 'Point of View', def: 'From what perspective is the author arguing (e.g., historical, sociological, economic)?' }
+                    ]},
+                    { type: 'text_card', section: 'College: Module 2', title: 'Example: Analyzing a Thesis', text: "Thesis: 'The rise of social media has fundamentally altered political discourse by prioritizing emotional appeals over factual accuracy.' Purpose: To persuade readers of this shift. Question: How has social media changed political talk? Key Concept: Political Discourse." },
+                    { type: 'reflection', section: 'College: Module 2', title: 'Deconstruct This: Unstated Premise Challenge', question: "Analyze the statement: 'This historical account, written decades after the event by a non-eyewitness, is likely less reliable than a primary source document from the period.' What is a key unstated premise about the nature of historical evidence here?", placeholder: "The unstated premise is..." },
+                    { type: 'mcq', section: 'College: Module 2', title: 'Identifying Evidence Types', question: "A research paper uses interviews with 20 participants to explore their experiences with online learning. This is primarily an example of:", options: ["Quantitative data", "Qualitative data", "Anecdotal evidence"], answer: "Qualitative data", feedback: "Correct. Interviews provide rich, descriptive qualitative data."},
+                    { type: 'text', section: 'College: Module 2', title: 'Key Skill', text: "Identifying these components allows you to evaluate the strength and validity of academic arguments.", achievement: "Module 2: Argument Analyst!" },
+
+                    { type: 'welcome', section: 'College: Module 3', title: 'Module 3: Evaluating Scholarly Information & Sources', text: "Navigating the academic information landscape effectively.", button: 'Start Evaluation' },
+                    { type: 'text', section: 'College: Module 3', title: 'Assessing Scholarly Sources', text: "Beyond the CRAAP test, consider: Peer Review status, author's institutional affiliation, journal impact factor (if applicable), citation practices, and potential funding sources." },
+                    { type: 'expandable_list', section: 'College: Module 3', title: "Intellectual Standards for Evaluation (Paul-Elder)", items: [ 
+                        { term: 'Clarity', def: 'Is the argument easy to understand? Could it be expressed more clearly?' }, 
+                        { term: 'Accuracy', def: 'Is the information true and correct? How can we verify it?' },
+                        { term: 'Precision', def: 'Is the information specific enough? Does it provide sufficient detail?' },
+                        { term: 'Relevance', def: 'How does this information relate to the question at issue?' },
+                        { term: 'Depth', def: 'Does the argument address the complexities of the issue, or is it superficial?' },
+                        { term: 'Breadth', def: 'Are other relevant perspectives or points of view considered?' },
+                        { term: 'Logic', def: 'Does the argument make sense? Do the conclusions follow from the evidence?' },
+                        { term: 'Significance', def: 'Is this an important problem or issue to consider?' },
+                        { term: 'Fairness', def: 'Is the argument considering all relevant viewpoints in an unbiased way?' }
+                    ]},
+                    { type: 'scenario', section: 'College: Module 3', title: "Source Evaluation Scenario", text: "You find two articles on your research topic. Article A is from a peer-reviewed journal with a clear methodology. Article B is an opinion piece on a popular website with no cited sources. Which is likely more reliable for academic purposes?", options: ["Article A", "Article B", "Both are equally reliable"], answer: "Article A", feedback: "Correct. Peer-reviewed articles with clear methodologies are generally more reliable for academic work." },
+                    { type: 'reflection', section: 'College: Module 3', title: 'Applying Intellectual Standards', question: "Choose one Intellectual Standard (e.g., Depth, Breadth, Fairness). Find an academic article or a chapter from a textbook. How well does it meet that specific standard? Provide a brief justification.", placeholder: "Standard: ... Article/Chapter: ... Justification: ..."},
+                     { type: 'text', section: 'College: Module 3', title: 'Key Skill', text: "Rigorous source evaluation is fundamental to academic integrity and quality research.", achievement: "Module 3: Source Sleuth!" },
+
+                    { type: 'welcome', section: 'College: Module 4', title: 'Module 4: Advanced Argument & Evidence Analysis', text: "Delving deeper into the logic and structure of complex arguments.", button: 'Begin Deep Dive' },
+                    { type: 'text_card', section: 'College: Module 4', title: 'Analyzing Methodologies', text: "In research, critically examine the research design (e.g., experimental, correlational, qualitative), sample size and selection, data collection methods (e.g., surveys, interviews, experiments), and statistical analysis. Are they appropriate for the research question? What are the limitations?" },
+                    { type: 'comparison', section: 'College: Module 4', title: "Qualitative vs. Quantitative Evidence", 
+                        is: ['Qualitative: Explores ideas and experiences in depth (e.g., interviews, case studies, ethnographic observation). Provides rich context and understanding of phenomena.'], 
+                        isNot: ['Quantitative: Focuses on numerical data and statistical analysis (e.g., experiments, surveys with scaled responses, content analysis with counts). Allows for generalization and testing of hypotheses.'] 
+                    },
+                    { type: 'reflection', section: 'College: Module 4', title: 'Identify the Reasoning', question: "Read the abstract of a research paper in your field. Does it primarily rely on inductive or deductive reasoning to reach its main conclusion? Explain your choice, pointing to specific phrases if possible.", placeholder: "The abstract suggests... reasoning because..."},
+                    { type: 'scenario', section: 'College: Module 4', title: "Interpreting Statistical Significance", text: "A study finds a statistically significant result (p < 0.05) but the effect size is very small. What does this imply for the practical importance of the finding?", options: ["It's highly important because it's significant.", "It might be statistically real but not practically meaningful.", "The study is flawed."], answer: "It might be statistically real but not practically meaningful.", feedback: "Correct. Statistical significance doesn't always equate to real-world importance; effect size matters." },
+                    { type: 'text', section: 'College: Module 4', title: 'Key Skill', text: "Understanding the nuances of evidence, methodology, and reasoning strengthens your analytical abilities.", achievement: "Module 4: Evidence Expert!" },
+
+                    { type: 'welcome', section: 'College: Module 5', title: 'Module 5: Academic Problem Solving & Research Design', text: "Applying critical thinking to research and complex academic tasks.", button: 'Start Problem Solving' },
+                    { type: 'framework', section: 'College: Module 5', title: 'The Research Process as Problem Solving (Bloom\'s Application)', steps: ['Identify a Gap/Problem (Remember/Understand)', 'Literature Review (Analyze Existing Knowledge)', 'Formulate Research Question/Hypothesis (Create/Apply)', 'Propose a Methodology (Create/Apply)', 'Collect & Analyze Data (Apply/Analyze)', 'Draw Conclusions & Discuss Implications (Evaluate/Create)'] },
+                    { type: 'reflection', section: 'College: Module 5', title: 'Formulating a Research Question', question: "Think about a topic in your major that interests you. Try to formulate one specific, answerable research question about it that could be investigated. Consider its feasibility and potential significance.", placeholder: "My research question is..." },
+                    { type: 'scenario', section: 'College: Module 5', title: "Ethical Dilemma in Research", text: "A researcher discovers a flaw in their published study that could change its main conclusion. What is the most ethically sound action, considering principles like Intellectual Integrity and Fairness?", options: ["Ignore it to protect their reputation and funding.", "Publish a correction or retraction promptly and transparently.", "Hope no one notices and continue citing the flawed work."], answer: "Publish a correction or retraction promptly and transparently.", feedback: "Correct. Academic integrity demands honesty and transparency, even when it's difficult." },
+                    { type: 'text_card', section: 'College: Module 5', title: 'Constructive Peer Review', text: "When reviewing a peer's work, apply critical thinking: identify strengths, weaknesses in argumentation or methodology, offer specific suggestions for improvement, and maintain a respectful, constructive tone. Focus on the work, not the person." },
+                    { type: 'text', section: 'College: Module 5', title: 'Key Skill', text: "Critical thinking is essential for designing sound research, navigating academic challenges, and contributing to scholarly discourse.", achievement: "Module 5: Research Strategist!" },
+
+                    { type: 'welcome', section: 'College: Module 6', title: 'Module 6: Critical Thinking in Higher Education & Beyond', text: "Synthesizing your skills for future success.", button: 'Final Reflections' },
+                    { type: 'text_card', section: 'College: Module 6', title: 'Application in Seminars & Debates', text: "Articulating well-reasoned arguments, respectfully challenging others' views, synthesizing diverse perspectives, and identifying areas of consensus or disagreement." },
+                    { type: 'text_card', section: 'College: Module 6', title: 'Lifelong Learning & Adaptability', text: "The ability to critically evaluate new information, unlearn outdated concepts, and adapt your understanding is crucial in a rapidly changing world and for continuous professional development." },
+                    { type: 'reflection', section: 'College: Module 6', title: 'Personal Growth Plan', question: "Identify one critical thinking skill you want to focus on improving during your college career (e.g., evaluating evidence, identifying assumptions, constructing arguments). What specific actions will you take (e.g., seek feedback on essays, practice argument mapping, join a debate club)?", placeholder: "Skill to improve: ... Actions: ..." },
+                    { type: 'summary', section: 'College: Module 6', title: 'Cultivating Critical Scholarship', points: ["Rigorously evaluate academic sources and methodologies.", "Deconstruct and construct complex arguments effectively.", "Engage in reasoned discourse and debate ethically, applying intellectual traits like empathy and fair-mindedness.", "Embrace critical thinking as a tool for lifelong learning and intellectual growth."] },
+                    { type: 'text', section: 'College: Module 6', title: 'Continuing Your Intellectual Journey', text: "Apply these critical inquiry skills throughout your academic career and beyond. The pursuit of knowledge, guided by critical thought, is a rewarding and empowering endeavor!", achievement: "College Critical Thinker Graduate!" }
+                ],
+                professional: [
+                    { type: 'welcome', section: 'Professional: Module 1', title: 'Module 1: Strategic Thinking & Decision Making', text: 'Enhancing your ability to analyze complex business situations and make effective, evidence-based decisions.', button: 'Start Module' },
+                    { type: 'text', section: 'Professional: Module 1', title: "Case Study: The Failing Project Turnaround", text: "Let's explore a common workplace challenge." },
+                    { type: 'case_study_card', section: 'Professional: Module 1', title: "The Project Crisis", text: "You're assigned to lead a project that's significantly behind schedule and over budget. Team morale is low, and stakeholders are demanding immediate results. Initial reports blame 'inefficient processes' and 'lack of team commitment'." },
+                    { type: 'mcq', section: 'Professional: Module 1', question: "What is the most critical first step to address this failing project?", options: ['Implement new processes immediately based on initial reports.', 'Conduct a root cause analysis involving team input and data review.', 'Reassure stakeholders that everything will be fixed quickly without a clear plan.'], answer: 'Conduct a root cause analysis involving team input and data review.', feedback: "Correct. Understanding the true, multifaceted causes is essential before implementing effective solutions." },
+                    { type: 'text', section: 'Professional: Module 1', title: 'Critical Thinking in the Workplace', text: "It involves objective analysis of data, identifying underlying causes of problems (not just symptoms), evaluating risks and benefits of potential solutions, strategic foresight, and clear communication of complex issues." },
+                    { type: 'expandable_list', section: 'Professional: Module 1', title: "Recognizing Cognitive Biases in Strategic Decisions", items: [
+                        { term: 'Sunk Cost Fallacy', def: 'Continuing a failing project because of past investment, rather than future prospects.' },
+                        { term: 'Confirmation Bias', def: 'Seeking data that confirms your initial hypothesis, ignoring contradictory evidence.' },
+                        { term: 'Anchoring Bias', def: 'Over-relying on the first piece of information received when making decisions.' },
+                        { term: 'Groupthink', def: 'Prioritizing team consensus over critical evaluation of alternatives.' },
+                        { term: 'Availability Heuristic', def: 'Overestimating the likelihood of events that are easily recalled (e.g., recent successes/failures).' }
+                    ]},
+                    { type: 'reflection', section: 'Professional: Module 1', title: 'Bias Self-Check', question: "Reflect on a recent significant decision you made or were part of at work. Can you identify any cognitive biases that might have influenced the process or outcome? How could awareness of these biases have led to a different approach?", placeholder: "The decision was about... A potential bias was..."},
+                    { type: 'text', section: 'Professional: Module 1', title: 'Key Professional Skill', text: "Critical thinking drives effective leadership, innovation, and sustainable business success.", achievement: "Module 1: Strategic Foundations!" },
+
+                    { type: 'welcome', section: 'Professional: Module 2', title: 'Module 2: Analyzing Business Arguments & Proposals', text: "Evaluating the soundness of strategies, plans, and recommendations.", button: 'Start Analysis' },
+                    { type: 'expandable_list', section: 'Professional: Module 2', title: "Elements of Business Proposals (Applying Paul-Elder)", items: [ 
+                        { term: 'Purpose', def: 'What is the ultimate goal of this proposal? What problem does it solve or opportunity does it seize?' }, 
+                        { term: 'Question at Issue', def: 'What specific question or challenge is this proposal designed to address?' },
+                        { term: 'Information/Data', def: 'What market research, financial data, competitor analysis, or internal metrics support this proposal?'},
+                        { term: 'Inferences/Interpretations', def: 'What conclusions are drawn from the data? Are these interpretations sound?'},
+                        { term: 'Key Concepts', def: 'What core business models, theories, or strategic frameworks underpin the proposal?'},
+                        { term: 'Assumptions', def: 'What unstated beliefs about the market, customers, competition, or internal capabilities is this proposal based on?'},
+                        { term: 'Implications & Consequences', def: 'What are the potential positive and negative outcomes (financial, operational, reputational) if this proposal is implemented? What if it\'s not?'},
+                        { term: 'Point of View', def: 'From whose perspective is this proposal primarily argued (e.g., marketing, finance, operations)? Are other perspectives considered?'}
+                    ]},
+                    { type: 'text_card', section: 'Professional: Module 2', title: 'Example: Market Expansion Proposal', text: "Claim: 'We should expand into the Asian market.' Premise: 'Market research shows high demand for our product in Asia.' Assumption: 'We can navigate the regulatory landscape effectively and our current operational model is scalable for this expansion.'" },
+                    { type: 'reflection', section: 'Professional: Module 2', title: 'Identify the Weakest Link', question: "A colleague proposes a new marketing campaign, arguing: 'Our competitor launched a similar campaign and their sales increased 10%. Therefore, our sales will also increase 10% if we do this.' What is a critical unstated assumption or potential flaw in this argument?", placeholder: "A key flaw/assumption is..." },
+                    { type: 'scenario', section: 'Professional: Module 2', title: 'Evaluating Financial Viability', question: "A proposal includes impressive ROI projections. What critical questions should you ask about these projections before accepting them at face value?", options: ["Are the fonts and colors in the projection chart appealing?", "What are the underlying assumptions for revenue growth and cost savings? How sensitive are the projections to changes in these assumptions?", "Who prepared the projections?"], answer: "What are the underlying assumptions for revenue growth and cost savings? How sensitive are the projections to changes in these assumptions?", feedback: "Correct. Scrutinizing assumptions and performing sensitivity analysis is crucial for financial projections." },
+                     { type: 'text', section: 'Professional: Module 2', title: 'Key Skill', text: "Thoroughly vetting proposals prevents costly mistakes and aligns actions with strategic goals.", achievement: "Module 2: Proposal Analyst!" },
+
+                    { type: 'welcome', section: 'Professional: Module 3', title: 'Module 3: Evaluating Business Intelligence & Sources', text: "Making sense of data and information in a business context.", button: 'Start Evaluation' },
+                    { type: 'text', section: 'Professional: Module 3', title: 'Assessing Business Data & Reports', text: "Consider data sources (internal vs. external, primary vs. secondary), collection methods, sample size and representativeness, potential biases in data, the relevance of metrics to your objectives, and the clarity of data presentation." },
+                    { type: 'expandable_list', section: 'Professional: Module 3', title: "Applying Intellectual Standards to Business Reports", items: [ 
+                        { term: 'Clarity', def: 'Is the report easy to understand? Are terms well-defined?' }, 
+                        { term: 'Accuracy', def: 'Is the data presented verifiably correct? Are sources cited?' },
+                        { term: 'Precision', def: 'Is the information specific enough for decision-making? Are numbers exact where needed?' },
+                        { term: 'Relevance', def: 'How directly does this data address the business question or objective?' },
+                        { term: 'Depth', def: 'Does the report explore the complexities, or is it superficial?' },
+                        { term: 'Breadth', def: 'Does it consider multiple perspectives or factors (e.g., market, operations, finance)?' },
+                        { term: 'Logic', def: 'Do the conclusions logically follow from the data presented? Are there any contradictions?' },
+                        { term: 'Significance', def: 'How important is this information for achieving strategic goals?' },
+                        { term: 'Fairness', def: 'Is the data presented without undue bias? Are limitations acknowledged?' }
+                    ]},
+                    { type: 'scenario', section: 'Professional: Module 3', title: "Data Interpretation Scenario", text: "A report shows sales are down 5% this quarter. One manager blames the new marketing campaign. Another points to a new competitor. What critical thinking step is needed before drawing conclusions?", options: ["Immediately fire the marketing team.", "Assume the competitor is the sole cause.", "Analyze sales data alongside marketing performance, competitor activity, and market trends, seeking breadth and depth."], answer: "Analyze sales data alongside marketing performance, competitor activity, and market trends, seeking breadth and depth.", feedback: "Correct. A holistic analysis considering multiple factors is needed." },
+                    { type: 'reflection', section: 'Professional: Module 3', title: 'Critiquing a Business Report', question: "Think of a recent business report or data presentation you encountered. Choose two Intellectual Standards (e.g., Clarity, Accuracy, Depth) and evaluate how well the report met them. What could have improved it?", placeholder: "Report: ... Standard 1: ... Evaluation: ... Standard 2: ... Evaluation: ..."},
+                    { type: 'text', section: 'Professional: Module 3', title: 'Key Skill', text: "Data-driven, critically evaluated intelligence leads to more informed and effective strategies.", achievement: "Module 3: Data-Driven Decider!" },
+
+                    { type: 'welcome', section: 'Professional: Module 4', title: 'Module 4: Evidence-Based Management & Analysis', text: "Using evidence and sound reasoning to guide managerial actions.", button: 'Begin Deep Dive' },
+                    { type: 'text_card', section: 'Professional: Module 4', title: 'Key Performance Indicators (KPIs)', text: "Critically evaluate if chosen KPIs accurately reflect strategic goals. Are they measurable, actionable, relevant, and time-bound (SMART)? Do they lead to the desired behaviors or potentially unintended negative consequences?" },
+                    { type: 'comparison', section: 'Professional: Module 4', title: "Correlation vs. Causation in Business", 
+                        is: ['Correlation: Two variables tend to move together (e.g., marketing spend and sales).'], 
+                        isNot: ['Causation: One variable directly causes a change in another. (Increased marketing spend *causes* increased sales, or are both driven by a third factor like seasonality?). Mistaking correlation for causation leads to flawed strategies.'] 
+                    },
+                    { type: 'reflection', section: 'Professional: Module 4', title: 'Correlation/Causation in Your Industry', question: "Think of a common correlation observed in your industry or workplace. Is it truly a causal relationship, or could there be other factors (confounding variables) at play? Explain.", placeholder: "A common correlation is... This might not be causal because..."},
+                    { type: 'scenario', section: 'Professional: Module 4', title: 'Leading a Team Through Ambiguity', text: "Your team faces a new, complex challenge with unclear requirements and multiple potential paths forward. How would you use critical thinking to guide your team?", options: ["Make a quick decision yourself to show leadership.", "Encourage open discussion, brainstorming of options, evaluation of pros/cons for each, and collaborative decision-making.", "Wait for clearer instructions from upper management."], answer: "Encourage open discussion, brainstorming of options, evaluation of pros/cons for each, and collaborative decision-making.", feedback: "Excellent. Facilitating critical thinking within the team is key in ambiguous situations." },
+                    { type: 'text', section: 'Professional: Module 4', title: 'Key Skill', text: "Distinguishing correlation from causation and leading with analytical rigor prevents flawed strategies.", achievement: "Module 4: Analytical Manager!" },
+
+                    { type: 'welcome', section: 'Professional: Module 5', title: 'Module 5: Problem Solving & Strategic Implementation', text: "Applying critical thinking to overcome challenges and execute plans.", button: 'Start Problem Solving' },
+                    { type: 'framework', section: 'Professional: Module 5', title: 'A Business Problem-Solving Model (e.g., DMAIC variation)', steps: ['Define the Problem & Objectives Clearly (Purpose, Question)', 'Measure Key Aspects (Information, Data)', 'Analyze Data to Find Root Causes (Inferences, Assumptions)', 'Improve/Develop Solutions (Concepts, Point of View)', 'Control & Sustain the Solution (Implications, Consequences)'] },
+                    { type: 'reflection', section: 'Professional: Module 5', title: 'Strategic Challenge: The New Market Entry', question: "Your company is considering expanding its popular software product into a new international market with different cultural norms and regulations. What are three potential non-obvious risks or challenges (beyond just language translation) that should be critically evaluated before launching?", placeholder: "Risk 1: ..., Risk 2: ..., Risk 3: ..." },
+                    { type: 'scenario', section: 'Professional: Module 5', title: "Evaluating a Cost-Cutting Measure", text: "A proposal suggests cutting the R&D budget by 20% to improve short-term profitability. What is a critical long-term risk to evaluate using the Paul-Elder element of 'Implications and Consequences'?", options: ["Immediate improvement in profit margins.", "Reduced innovation and future competitiveness, impacting long-term market share.", "Short-term boost in stock price."], answer: "Reduced innovation and future competitiveness, impacting long-term market share.", feedback: "Correct. Short-term gains can sometimes lead to long-term strategic disadvantages." },
+                    { type: 'reflection', section: 'Professional: Module 5', title: 'Post-Implementation Review', question: "Think of a project or initiative you were involved in. If you were to conduct a post-implementation review using critical thinking, what key questions would you ask to learn from its successes and failures for future improvements?", placeholder: "Key questions would include..." },
+                    { type: 'text', section: 'Professional: Module 5', title: 'Key Skill', text: "Systematic problem-solving and risk assessment are vital for successful strategy execution.", achievement: "Module 5: Strategic Problem Solver!" },
+
+                    { type: 'welcome', section: 'Professional: Module 6', title: 'Module 6: Critical Leadership & Innovation', text: "Fostering a culture of critical thinking and driving innovation.", button: 'Final Reflections' },
+                    { type: 'text_card', section: 'Professional: Module 6', title: 'Fostering Critical Thinking in Teams', text: "Encourage open questioning, diverse perspectives (Breadth), constructive debate (Intellectual Courage), and learning from failures (Intellectual Humility). Create psychological safety for challenging assumptions." },
+                    { type: 'text_card', section: 'Professional: Module 6', title: 'Innovation & Calculated Risks', text: "Critical thinking helps evaluate innovative ideas, assess their feasibility (Relevance, Significance), and take calculated risks rather than reckless gambles. It involves moving from 'Create' (Bloom) back to 'Evaluate' and 'Analyze'." },
+                    { type: 'text_card', section: 'Professional: Module 6', title: 'Change Management & Communicating Vision', text: "Use critical thinking to anticipate resistance to change, develop clear and logical communication strategies (Clarity, Logic), and address concerns with empathy and evidence (Intellectual Empathy, Fairness)." },
+                    { type: 'reflection', section: 'Professional: Module 6', title: 'Personal Leadership Action', question: "What is one specific action you can take in your professional role this month to encourage more critical thinking within your team or when evaluating a strategic initiative?", placeholder: "I will start by..." },
+                    { type: 'summary', section: 'Professional: Module 6', title: 'Driving Professional Excellence', points: ["Apply root cause analysis to workplace challenges effectively.", "Make data-driven, strategically sound decisions, considering all Elements of Thought.", "Anticipate, articulate, and mitigate risks proactively, applying Intellectual Standards.", "Foster a culture that values critical inquiry, intellectual traits, and innovation."] },
+                    { type: 'text', section: 'Professional: Module 6', title: 'Advancing Your Career with Critical Thought', text: "Utilize these skills to lead with insight, innovate with purpose, and achieve impactful, sustainable results in your professional domain.", achievement: "Professional Critical Thinker Graduate!" }
+                ]
+            };
+
+            let appState = {
+                currentAudience: null, 
+                currentScreen: 0,
+                answers: {},
+                currentModuleContent: [],
+                score: 0,
+                achievements: []
+            };
+
+            const mainContent = document.getElementById('app-main');
+            const nextBtn = document.getElementById('next-btn');
+            const backBtn = document.getElementById('back-btn');
+            const homeBtn = document.getElementById('home-btn');
+            const progressBar = document.getElementById('progress-bar');
+            const sectionTitleEl = document.getElementById('section-title');
+            const appHeader = document.getElementById('app-header');
+            const appFooter = document.getElementById('app-footer');
+            const scoreDisplay = document.getElementById('score-display');
+            const achievementToast = document.getElementById('achievement-toast');
+            
+            let selectedDragItem = null;
+
+            function showAudienceSelection() {
+                mainContent.innerHTML = `
+                    <div class="content-card text-center w-full max-w-md mx-auto">
+                        <h2 class="text-2xl md:text-3xl font-bold mb-6">Welcome to the Critical Thinking Course!</h2>
+                        <p class="text-muted text-lg mb-8">Please select your learning path to begin:</p>
+                        <div class="space-y-3">
+                            <div>
+                                <button class="audience-btn audience-btn-k12 w-full py-3 px-5 border-2 rounded-lg font-semibold text-lg" data-audience="k12">K-12 Student</button>
+                                <p class="instruction-text">(Kids below 15 can start here)</p>
+                            </div>
+                            <div>
+                                <button class="audience-btn w-full py-3 px-5 accent-bg-light accent-text border-2 accent-border rounded-lg font-semibold text-lg" data-audience="general">General</button>
+                                <p class="instruction-text">(Recommended to start here)</p>
+                            </div>
+                            <div>
+                                <button class="audience-btn audience-btn-blue w-full py-3 px-5 border-2 rounded-lg font-semibold text-lg" data-audience="college">Academic Scholar</button>
+                            </div>
+                            <div>
+                                <button class="audience-btn audience-btn-blue w-full py-3 px-5 border-2 rounded-lg font-semibold text-lg" data-audience="professional">Professional</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                appHeader.style.display = 'none';
+                appFooter.style.display = 'none';
+
+                document.querySelectorAll('.audience-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        appState.currentAudience = e.target.closest('.audience-btn').dataset.audience;
+                        appState.currentModuleContent = courseContent[appState.currentAudience];
+                        appState.currentScreen = 0;
+                        appState.answers = {};
+                        appState.score = 0;
+                        appState.achievements = [];
+                        updateScoreDisplay();
+                        appHeader.style.display = 'block'; 
+                        const headerH1 = appHeader.querySelector('h1');
+                        if(headerH1) headerH1.textContent = "Critical Thinking Course"; 
+                        appFooter.style.display = 'flex'; 
+                        renderScreen();
+                    });
+                });
+            }
+
+            function updateScore(points) {
+                appState.score += points;
+                updateScoreDisplay();
+            }
+
+            function updateScoreDisplay() {
+                scoreDisplay.textContent = `Score: ${appState.score}`;
+            }
+
+            function showAchievement(text) {
+                achievementToast.textContent = `🏆 Achievement Unlocked: ${text}`;
+                achievementToast.classList.add('show');
+                setTimeout(() => {
+                    achievementToast.classList.remove('show');
+                }, 3000);
+            }
+          
+
+            function renderScreen() {
+                if (!appState.currentAudience) {
+                    showAudienceSelection();
+                    return;
+                }
+
+                const screenData = appState.currentModuleContent[appState.currentScreen];
+                mainContent.innerHTML = '';
+                mainContent.className = 'flex-grow flex items-center justify-center w-full max-w-2xl mx-auto fade-in';
+                
+                let contentHTML = '';
+
+                switch (screenData.type) {
+                    case 'welcome':
+                        contentHTML = `<div class="content-card text-center w-full">
+                            <h2 class="text-2xl md:text-3xl font-bold mb-2">${screenData.title}</h2>
+                            <p class="text-muted text-lg">${screenData.text}</p>
+                            ${screenData.button ? `<button id="start-btn" class="mt-6 py-3 px-8 accent-bg text-white rounded-lg font-semibold text-lg hover:bg-opacity-90 transition-colors">${screenData.button}</button>` : ''}
+                        </div>`;
+                        break;
+                    case 'text':
+                    case 'case_study_card':
+                    case 'text_card':
+                        let visualHTML = '';
+                        if (screenData.visuals === 'mock_ad') {
+                             visualHTML = `<div class="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 mt-4 bg-yellow-50">
+                                 <h3 class="font-bold text-yellow-700 text-2xl">⚡ ZipZap! ⚡</h3>
+                                 <p class="text-yellow-600 mt-1">The REVOLUTIONARY natural energy formula!</p>
+                                 <p class="mt-2 text-red-600 font-bold bg-red-100 py-1 px-2 rounded-md inline-block">50% OFF - TODAY ONLY!</p>
+                             </div>`;
+                        }
+                        contentHTML = `<div class="content-card text-center w-full">
+                            <h2 class="text-xl md:text-2xl font-bold mb-2">${screenData.title}</h2>
+                            <p class="text-muted text-lg leading-relaxed">${screenData.text}</p>
+                            ${screenData.example ? `<p class="mt-4 text-sm text-gray-500 bg-gray-100 p-2 rounded-md"><em>e.g., ${screenData.example}</em></p>` : ''}
+                            ${visualHTML}
+                        </div>`;
+                        break;
+                    case 'mcq':
+                    case 'final_quiz':
+                        const optionsHTML_mcq_final = screenData.options.map(option =>
+                            `<button class="option-btn w-full text-left p-4 border-2 border-gray-200 rounded-lg my-2 text-main">${option}</button>`
+                        ).join('');
+                        contentHTML = `<div class="content-card w-full">
+                            <h2 class="text-lg md:text-xl font-semibold mb-4 text-center">${screenData.question}</h2>
+                            <div id="options-container">${optionsHTML_mcq_final}</div>
+                            <p id="feedback" class="text-center mt-4 font-medium h-6"></p>
+                        </div>`;
+                        break;
+                    case 'yes_no':
+                        const yesNoOptions = (screenData.question.toLowerCase().includes("fact or an opinion") || screenData.question.toLowerCase().includes("myth or fact")) 
+                            ? ["Fact", "Opinion"] 
+                            : ["Yes", "No"];
+                        if (screenData.question.toLowerCase().includes("myth or fact")) {
+                             yesNoOptions[0] = "Myth"; 
+                             yesNoOptions[1] = "Fact";
+                        }
+
+                        const optionsHTML_yes_no = yesNoOptions.map(optionText =>
+                            `<button class="option-btn w-full text-left p-4 border-2 border-gray-200 rounded-lg my-2 text-main">${optionText}</button>`
+                        ).join('');
+                        contentHTML = `<div class="content-card w-full">
+                            <h2 class="text-lg md:text-xl font-semibold mb-4 text-center">${screenData.question}</h2>
+                            <div id="options-container">${optionsHTML_yes_no}</div>
+                            <p id="feedback" class="text-center mt-4 font-medium h-6"></p>
+                        </div>`;
+                        break;
+                    case 'reflection':
+                        contentHTML = `<div class="content-card w-full">
+                            <h2 class="text-lg md:text-xl font-semibold mb-4 text-center">${screenData.title || screenData.question}</h2>
+                            ${screenData.title && screenData.question !== screenData.title ? `<p class="text-muted text-center mb-4">${screenData.question}</p>` : ''}
+                            <textarea id="reflection-input" class="w-full h-32 p-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-green-400 transition" placeholder="${screenData.placeholder}"></textarea>
+                            <p id="reflection-feedback" class="text-center mt-2 text-sm text-gray-500 h-5"></p>
+                        </div>`;
+                        break;
+                    case 'comparison':
+                        const isItems = screenData.is.map(item => `<li class="flex items-start mb-2"><span class="text-green-500 mr-2 text-xl">✔</span><span>${item}</span></li>`).join('');
+                        const isNotItems = screenData.isNot.map(item => `<li class="flex items-start mb-2"><span class="text-red-500 mr-2 text-xl">✖</span><span>${item}</span></li>`).join('');
+                        contentHTML = `<div class="content-card w-full">
+                            <h2 class="text-xl md:text-2xl font-bold mb-4 text-center">${screenData.title}</h2>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div><h3 class="font-bold text-lg text-green-700 mb-2">It IS...</h3><ul>${isItems}</ul></div>
+                                <div><h3 class="font-bold text-lg text-red-700 mb-2">It ISN'T...</h3><ul>${isNotItems}</ul></div>
+                            </div>
+                        </div>`;
+                        break;
+                    case 'expandable_list':
+                        const listItemsHTML = screenData.items.map(item => 
+                            `<div class="border-b border-gray-200 py-3">
+                                <details>
+                                    <summary class="font-semibold text-lg cursor-pointer">${item.term}</summary>
+                                    <p class="mt-2 text-muted pl-6">${item.def}</p>
+                                </details>
+                            </div>`
+                        ).join('');
+                        contentHTML = `<div class="content-card w-full">
+                            <h2 class="text-xl md:text-2xl font-bold mb-4 text-center">${screenData.title}</h2>
+                            ${listItemsHTML}
+                        </div>`;
+                        break;
+                    case 'icons':
+                         const iconItemsHTML = screenData.items.map(item =>
+                             `<div class="text-center p-4 bg-gray-50 rounded-lg">
+                                 <p class="text-4xl">${item.icon}</p>
+                                 <p class="mt-2 font-medium">${item.text}</p>
+                             </div>`
+                         ).join('');
+                         contentHTML = `<div class="content-card w-full">
+                             <h2 class="text-xl md:text-2xl font-bold mb-6 text-center">${screenData.title}</h2>
+                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">${iconItemsHTML}</div>
+                         </div>`;
+                         break;
+                    case 'scenario':
+                        const scenarioOptionsHTML = screenData.options.map(option =>
+                            `<button class="option-btn w-full text-left p-4 border-2 border-gray-200 rounded-lg my-2 text-main">${option}</button>`
+                        ).join('');
+                        contentHTML = `<div class="content-card w-full">
+                            <h3 class="font-bold text-lg accent-text mb-2">${screenData.title}</h3>
+                            <p class="text-lg mb-4">${screenData.text}</p>
+                            <div id="options-container">${scenarioOptionsHTML}</div>
+                            <p id="feedback" class="text-center mt-4 font-medium h-6"></p>
+                        </div>`;
+                        break;
+                    case 'framework':
+                        const stepsHTML = screenData.steps.map((step, index) =>
+                            `<div class="flex items-center my-1">
+                                <div class="flex-shrink-0 accent-bg-light text-accent-text w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">${index + 1}</div>
+                                <p class="ml-4 font-semibold text-lg">${step}</p>
+                            </div>
+                            ${index < screenData.steps.length - 1 ? '<div class="h-6 w-px bg-gray-300 ml-5"></div>' : ''}`
+                        ).join('');
+                        contentHTML = `<div class="content-card w-full">
+                            <h2 class="text-xl md:text-2xl font-bold mb-6 text-center">${screenData.title}</h2>
+                            <div class="flex flex-col">${stepsHTML}</div>
+                        </div>`;
+                        break;
+                     case 'drag_drop':
+                        const draggableItemsHTML = screenData.steps
+                            .slice() 
+                            .sort(() => Math.random() - 0.5) 
+                            .map(step => `<div class="draggable p-3 bg-white border-2 border-gray-300 rounded-lg my-2 shadow-sm" draggable="true">${step}</div>`)
+                            .join('');
+                        contentHTML = `<div class="content-card w-full">
+                            <h2 class="text-xl font-bold mb-2 text-center">${screenData.title}</h2>
+                            <p class="text-center text-muted mb-4">Drag the steps into the correct order in the box below.</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div id="drag-source" class="p-2 bg-gray-100 rounded-lg min-h-[200px]">${draggableItemsHTML}</div>
+                                <div id="drop-target" class="border-2 border-gray-300 drop-zone rounded-lg p-2 min-h-[200px] bg-gray-50"></div>
+                            </div>
+                            <p id="feedback" class="text-center mt-4 font-medium text-green-700 h-6"></p>
+                        </div>`;
+                        break;
+                    case 'match':
+                        const matchActionsHTML = screenData.items
+                            .map(item => item.action)
+                            .slice().sort(() => Math.random() - 0.5)
+                            .map(action => `<button class="match-item w-full text-left p-3 my-2 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-100" data-type="action" data-item="${action}">${action}</button>`)
+                            .join('');
+                        const matchStepsHTML = screenData.items
+                            .map(item => item.step)
+                            .slice().sort(() => Math.random() - 0.5)
+                            .map(step => `<button class="match-item w-full text-left p-3 my-2 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-100" data-type="step" data-item="${step}">${step}</button>`)
+                            .join('');
+                        contentHTML = `<div class="content-card w-full">
+                            <h2 class="text-xl font-bold mb-2 text-center">${screenData.title}</h2>
+                            <p class="text-center text-muted mb-4">Click one item from 'Actions' and its corresponding item from 'Steps'.</p>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><h3 class="font-semibold text-center mb-2">Actions</h3><div id="match-actions">${matchActionsHTML}</div></div>
+                                <div><h3 class="font-semibold text-center mb-2">Steps</h3><div id="match-steps">${matchStepsHTML}</div></div>
+                            </div>
+                            <p id="feedback" class="text-center mt-4 font-medium text-green-700 h-6"></p>
+                        </div>`;
+                        break;
+                    case 'summary':
+                        const pointsHTML = screenData.points.map(point => `<li class="flex items-start my-2"><span class="accent-text mr-3 mt-1 text-xl font-bold">✓</span><span class="text-lg">${point}</span></li>`).join('');
+                        contentHTML = `<div class="content-card w-full">
+                            <h2 class="text-xl md:text-2xl font-bold mb-4 text-center">${screenData.title}</h2>
+                            <ul>${pointsHTML}</ul>
+                        </div>`;
+                        break;
+                }
+                mainContent.innerHTML = contentHTML;
+
+                attachEventListeners();
+                updateUI();
+            }
+
+            function updateUI() {
+                if (!appState.currentAudience || !appState.currentModuleContent || appState.currentModuleContent.length === 0) {
+                    appHeader.style.display = 'none';
+                    appFooter.style.display = 'none';
+                    return;
+                }
+
+                const screenData = appState.currentModuleContent[appState.currentScreen];
+                 if (!screenData) { 
+                    console.error("screenData is undefined. currentScreen:", appState.currentScreen, "Audience:", appState.currentAudience);
+                    showAudienceSelection();
+                    return;
+                }
+
+
+                const progress = ((appState.currentScreen + 1) / appState.currentModuleContent.length) * 100;
+                progressBar.style.width = `${progress}%`;
+                sectionTitleEl.textContent = screenData.section || '';
+                updateScoreDisplay();
+
+                backBtn.disabled = appState.currentScreen === 0;
+                
+                if (['mcq', 'yes_no', 'scenario', 'final_quiz', 'drag_drop', 'match'].includes(screenData.type)) {
+                    if (screenData.type === 'drag_drop' && appState.answers[appState.currentScreen] && appState.answers[appState.currentScreen].correct) {
+                        nextBtn.disabled = false;
+                    } else if (screenData.type === 'match' && appState.answers[appState.currentScreen] && appState.answers[appState.currentScreen].found && appState.answers[appState.currentScreen].found.length === screenData.items.length) {
+                        nextBtn.disabled = false;
+                    }
+                     else {
+                         nextBtn.disabled = !appState.answers[appState.currentScreen];
+                    }
+                } else if (screenData.type === 'reflection') { 
+                    nextBtn.disabled = !(appState.answers[appState.currentScreen] && appState.answers[appState.currentScreen].answered);
+                }
+                else if (appState.currentScreen === appState.currentModuleContent.length - 1) {
+                    nextBtn.textContent = 'Finish Course'; 
+                    nextBtn.disabled = false; 
+                } else if(screenData.type === 'welcome' && screenData.button) {
+                    nextBtn.disabled = true; 
+                } 
+                else {
+                    nextBtn.disabled = false;
+                    nextBtn.textContent = 'Next';
+                }
+                
+                if (screenData && screenData.title && appState.currentScreen === appState.currentModuleContent.length - 1 && 
+                    (screenData.title.includes("You Did It!") || 
+                     screenData.title.includes("The End") || 
+                     screenData.title.includes("Journey") || 
+                     screenData.title.includes("Excellence") ||
+                     screenData.title.includes("Super Thinker!"))) { 
+                     nextBtn.textContent = 'Finish Course';
+                     nextBtn.disabled = false;
+                }
+            }
+
+            function handleOptionClick(e, screenData) {
+                if (e.target.tagName !== 'BUTTON') return;
+                if (appState.answers[appState.currentScreen]) return;
+
+                const selectedAnswer = e.target.textContent;
+                let correctAnswer = screenData.answer;
+                let isCorrectResponse = false;
+
+                if (screenData.type === 'yes_no') {
+                    if (screenData.question.toLowerCase().includes("fact or an opinion")) {
+                        correctAnswer = screenData.answer === 'Yes' ? 'Fact' : 'Opinion';
+                    } else if (screenData.question.toLowerCase().includes("myth or fact")) {
+                         correctAnswer = screenData.answer === 'No' ? 'Myth' : 'Fact'; 
+                    }
+                }
+                isCorrectResponse = selectedAnswer === correctAnswer;
+                
+                appState.answers[appState.currentScreen] = { selected: selectedAnswer, correct: isCorrectResponse };
+                if(isCorrectResponse) {
+                    updateScore(10);
+                }
+                
+                const feedbackEl = document.getElementById('feedback');
+                if (feedbackEl) { 
+                    if (isCorrectResponse) {
+                        feedbackEl.textContent = screenData.feedback || 'Correct!';
+                        feedbackEl.className = 'text-center mt-4 font-medium text-green-700 h-6';
+                    } else {
+                        feedbackEl.textContent = 'Not quite! The correct answer is highlighted.';
+                        feedbackEl.className = 'text-center mt-4 font-medium text-red-700 h-6';
+                    }
+                }
+                
+                const optionsContainer = e.currentTarget; 
+                if (optionsContainer) {
+                    const options = optionsContainer.querySelectorAll('button');
+                    options.forEach(btn => {
+                        btn.disabled = true; 
+                        if (btn.textContent === selectedAnswer) {
+                            btn.classList.add(isCorrectResponse ? 'correct' : 'incorrect');
+                        }
+                        if (btn.textContent === correctAnswer) {
+                            btn.classList.remove('incorrect');
+                            btn.classList.add('correct');
+                        }
+                    });
+                }
+
+                updateUI();
+                
+                if (isCorrectResponse) {
+                    setTimeout(() => {
+                        if (appState.currentScreen < appState.currentModuleContent.length - 1) { 
+                           handleNext();
+                        }
+                    }, 1500);
+                }
+            }
+
+            let selectedMatch = { action: null, step: null };
+
+            function handleMatchClick(e) {
+                const target = e.target.closest('.match-item');
+                if (!target || target.disabled) return;
+                
+                const itemType = target.dataset.type;
+                const itemValue = target.dataset.item;
+                const screenData = appState.currentModuleContent[appState.currentScreen];
+
+                if (!appState.answers[appState.currentScreen] || !appState.answers[appState.currentScreen].found) {
+                    appState.answers[appState.currentScreen] = { found: [], attempts: {} };
+                }
+                
+                if (target.classList.contains('selected')) {
+                    target.classList.remove('selected');
+                    if (itemType === 'action') selectedMatch.action = null;
+                    else selectedMatch.step = null;
+                    return;
+                }
+
+                const sameTypeSelected = document.querySelector(`.match-item[data-type="${itemType}"].selected`);
+                if (sameTypeSelected) sameTypeSelected.classList.remove('selected');
+
+                target.classList.add('selected');
+                if (itemType === 'action') selectedMatch.action = itemValue;
+                else selectedMatch.step = itemValue;
+
+                if (selectedMatch.action && selectedMatch.step) {
+                    const pair = screenData.items.find(p => 
+                        (p.action === selectedMatch.action && p.step === selectedMatch.step)
+                    );
+                    
+                    const actionButton = document.querySelector(`.match-item[data-type="action"][data-item="${selectedMatch.action}"]`);
+                    const stepButton = document.querySelector(`.match-item[data-type="step"][data-item="${selectedMatch.step}"]`);
+
+                    if (pair && !appState.answers[appState.currentScreen].found.some(f => f.action === pair.action && f.step === pair.step)) {
+                        actionButton.classList.remove('selected');
+                        stepButton.classList.remove('selected');
+                        actionButton.classList.add('correct');
+                        stepButton.classList.add('correct');
+                        actionButton.disabled = true;
+                        stepButton.disabled = true;
+                        appState.answers[appState.currentScreen].found.push(pair);
+                        updateScore(5); 
+                    } else {
+                        actionButton.classList.add('incorrect');
+                        stepButton.classList.add('incorrect');
+                        setTimeout(() => {
+                            actionButton.classList.remove('selected', 'incorrect');
+                            stepButton.classList.remove('selected', 'incorrect');
+                        }, 800);
+                    }
+                    
+                    selectedMatch.action = null;
+                    selectedMatch.step = null;
+                    
+                    const feedbackEl = document.getElementById('feedback');
+                    if(appState.answers[appState.currentScreen].found.length === screenData.items.length) {
+                        if (feedbackEl) feedbackEl.textContent = "All pairs matched correctly!";
+                        updateScore(10); 
+                    } else if (feedbackEl) {
+                        feedbackEl.textContent = `${appState.answers[appState.currentScreen].found.length} of ${screenData.items.length} pairs found.`;
+                    }
+                    updateUI();
+                }
+            }
+            
+            function handleDragStart(e) {
+                selectedDragItem = e.target;
+                setTimeout(() => { if(selectedDragItem) selectedDragItem.style.opacity = '0.5'; }, 0);
+            }
+            
+            function handleDragEnd(e) {
+                if(selectedDragItem) selectedDragItem.style.opacity = '1';
+                selectedDragItem = null;
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault();
+                const dropTarget = document.getElementById('drop-target');
+                if(dropTarget) dropTarget.classList.add('over');
+            }
+            
+            function handleDragLeave(e) {
+                const dropTarget = document.getElementById('drop-target');
+                if(dropTarget) dropTarget.classList.remove('over');
+            }
+            
+            function handleDrop(e) {
+                e.preventDefault();
+                const dropTarget = document.getElementById('drop-target');
+                if(dropTarget) dropTarget.classList.remove('over');
+                if (selectedDragItem && dropTarget) {
+                    dropTarget.appendChild(selectedDragItem);
+                    selectedDragItem.style.opacity = '1';
+                    checkDragDropOrder();
+                }
+            }
+            
+            function checkDragDropOrder() {
+                const dropTarget = document.getElementById('drop-target');
+                if (!dropTarget) return;
+
+                const droppedItems = Array.from(dropTarget.children).map(child => child.textContent);
+                const screenData = appState.currentModuleContent[appState.currentScreen];
+                const feedbackEl = document.getElementById('feedback');
+                
+                if(droppedItems.length === screenData.correctOrder.length) {
+                    const isCorrect = JSON.stringify(droppedItems) === JSON.stringify(screenData.correctOrder);
+                    if (isCorrect) {
+                        if(feedbackEl) feedbackEl.textContent = "Correct order! Well done.";
+                        appState.answers[appState.currentScreen] = { correct: true };
+                        updateScore(15);
+                        dropTarget.querySelectorAll('.draggable').forEach(item => {
+                            item.classList.add('correct');
+                            item.draggable = false; 
+                        });
+                        const dragSource = document.getElementById('drag-source');
+                        if (dragSource) {
+                            dragSource.querySelectorAll('.draggable').forEach(item => item.draggable = false);
+                        }
+                    } else {
+                        if(feedbackEl) feedbackEl.textContent = "Not quite the right order. Try again!";
+                        const dragSource = document.getElementById('drag-source');
+                        if (dragSource) {
+                            while (dropTarget.firstChild) {
+                                dragSource.appendChild(dropTarget.firstChild);
+                            }
+                        }
+                         appState.answers[appState.currentScreen] = null; 
+                    }
+                     updateUI();
+                }
+            }
+
+            function attachEventListeners() {
+                const screenData = appState.currentModuleContent[appState.currentScreen];
+                if (screenData.type === 'mcq' || screenData.type === 'yes_no' || screenData.type === 'scenario' || screenData.type === 'final_quiz') {
+                    const optionsContainer = document.getElementById('options-container');
+                    if (optionsContainer) {
+                       optionsContainer.addEventListener('click', (e) => handleOptionClick(e, screenData));
+                    }
+                }
+                 if (screenData.type === 'welcome' && screenData.button) {
+                    const startBtn = document.getElementById('start-btn');
+                    if (startBtn) {
+                        startBtn.addEventListener('click', handleNext);
+                    }
+                }
+                if (screenData.type === 'reflection') {
+                    const reflectionInput = document.getElementById('reflection-input');
+                    if (reflectionInput) {
+                        reflectionInput.addEventListener('input', (e) => {
+                            const feedbackEl = document.getElementById('reflection-feedback');
+                            if (feedbackEl) {
+                                feedbackEl.textContent = 'Your thoughts are being noted.';
+                                setTimeout(() => {if(feedbackEl) feedbackEl.textContent = '';}, 2000);
+                            }
+                            if (!appState.answers[appState.currentScreen] || !appState.answers[appState.currentScreen].pointsAwarded) {
+                                updateScore(5); 
+                                appState.answers[appState.currentScreen] = { answered: true, pointsAwarded: true };
+                            } else {
+                                appState.answers[appState.currentScreen].answered = true;
+                            }
+                            updateUI();
+                        });
+                    } else { 
+                         appState.answers[appState.currentScreen] = { answered: true };
+                         updateUI();
+                    }
+                }
+                if (screenData.type === 'drag_drop') {
+                    document.querySelectorAll('#drag-source .draggable').forEach(item => {
+                        item.addEventListener('dragstart', handleDragStart);
+                        item.addEventListener('dragend', handleDragEnd);
+                    });
+                    const dropTarget = document.getElementById('drop-target');
+                    if (dropTarget) {
+                        dropTarget.addEventListener('dragover', handleDragOver);
+                        dropTarget.addEventListener('dragleave', handleDragLeave);
+                        dropTarget.addEventListener('drop', handleDrop);
+                    }
+                }
+                if (screenData.type === 'match') {
+                    const matchActions = document.getElementById('match-actions');
+                    const matchSteps = document.getElementById('match-steps');
+                    if (matchActions) matchActions.addEventListener('click', handleMatchClick);
+                    if (matchSteps) matchSteps.addEventListener('click', handleMatchClick);
+                }
+            }
+
+            function handleNext() {
+                const currentScreenData = appState.currentModuleContent[appState.currentScreen];
+                if (currentScreenData.type !== 'mcq' && currentScreenData.type !== 'yes_no' && currentScreenData.type !== 'scenario' && currentScreenData.type !== 'final_quiz' && currentScreenData.type !== 'drag_drop' && currentScreenData.type !== 'match' && currentScreenData.type !== 'reflection') {
+                    if (!appState.answers[appState.currentScreen] || !appState.answers[appState.currentScreen].pointsAwardedForAdvance) {
+                        updateScore(2); 
+                        appState.answers[appState.currentScreen] = { ...appState.answers[appState.currentScreen], pointsAwardedForAdvance: true };
+                    }
+                }
+
+
+                if (currentScreenData.achievement && !appState.achievements.includes(currentScreenData.achievement)) {
+                    appState.achievements.push(currentScreenData.achievement);
+                    showAchievement(currentScreenData.achievement);
+                    updateScore(25); 
+                }
+
+
+                if (appState.currentScreen === appState.currentModuleContent.length - 1) {
+                     let achievementListHTML = appState.achievements.map(ach => `<li>🏆 ${ach}</li>`).join('');
+                     if(appState.achievements.length === 0) achievementListHTML = "<li>No achievements earned yet. Try again!</li>";
+
+                     mainContent.innerHTML = `<div class="content-card text-center w-full">
+                        <h2 class="text-3xl font-bold mb-2">🎉 Course Path Completed! 🎉</h2>
+                        <p class="text-muted text-lg">You have successfully finished this learning path. Well done!</p>
+                        <p class="text-xl font-semibold my-4">Final Score: ${appState.score}</p>
+                        <div class="my-6 text-left">
+                            <h3 class="text-lg font-semibold mb-2 text-center">Your Achievements:</h3>
+                            <ul class="list-disc list-inside mx-auto max-w-md">${achievementListHTML}</ul>
+                        </div>
+                        <button id="select-another-path" class="mt-4 py-2 px-5 accent-bg text-white rounded-lg font-semibold hover:bg-opacity-90 transition-colors">Select Another Path</button>
+                        <button onclick="location.reload()" class="mt-4 ml-2 py-2 px-5 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Restart Full App</button>
+                    </div>`;
+                    appFooter.style.display = 'none';
+                    const headerH1 = appHeader.querySelector('h1');
+                    if (headerH1) headerH1.textContent = "Path Finished!";
+                    const sectionTitle = appHeader.querySelector('#section-title');
+                    if(sectionTitle) sectionTitle.textContent = "Congratulations!";
+                    
+                    const selectAnotherPathBtn = document.getElementById('select-another-path');
+                    if(selectAnotherPathBtn) {
+                        selectAnotherPathBtn.addEventListener('click', () => {
+                            appState.currentAudience = null;
+                            appState.currentScreen = 0;
+                            appState.answers = {};
+                            appState.score = 0; 
+                            appState.achievements = [];
+                            updateScoreDisplay();
+                            showAudienceSelection();
+                        });
+                    }
+                    return;
+                }
+
+                if (appState.currentScreen < appState.currentModuleContent.length - 1) {
+                    appState.currentScreen++;
+                    renderScreen();
+                }
+            }
+
+            function handleBack() {
+                if (appState.currentScreen > 0) {
+                    appState.currentScreen--;
+                    renderScreen();
+                } else if (appState.currentAudience) { 
+                    appState.currentAudience = null;
+                    showAudienceSelection();
+                }
+            }
+            
+            homeBtn.addEventListener('click', () => {
+                 appState.currentAudience = null;
+                 appState.currentScreen = 0;
+                 appState.answers = {};
+                 appState.score = 0;
+                 appState.achievements = [];
+                 updateScoreDisplay();
+                 showAudienceSelection();
+            });
+
+            nextBtn.addEventListener('click', handleNext);
+            backBtn.addEventListener('click', handleBack);
+
+            showAudienceSelection(); 
+        });
+    </script>
+</body>
+</html>
